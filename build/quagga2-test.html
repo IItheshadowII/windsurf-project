@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Quagga2 debug</title>
+  <script src="https://unpkg.com/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+</head>
+<body style="margin:0">
+  <div id="preview" style="position:relative;width:100%;height:100vh;background:#000"></div>
+
+  <script>
+    (async () => {
+      try {
+        // 1️⃣ Pedimos vídeo en FULL-HD para que no se vea granulado
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: 1920, height: 1080 }
+        });
+        // 2️⃣ Iniciamos Quagga apuntando al mismo stream
+        Quagga.init({
+          locate   : true,            // que busque él solito
+          frequency: 10,              // FPS de análisis
+          numOfWorkers: 0,            // sin web-workers para debug
+          inputStream: {
+            type      : 'LiveStream',
+            target    : '#preview',
+            constraints: { /* ya los pedimos antes */ },
+            // disable auto grayscale → mantiene colores
+            singleChannel: false
+          },
+          locator: {
+            halfSample: false,        // sin bajar resolución
+            patchSize : 'x-large'     // probá "large" o "medium" si no va
+          },
+          decoder : { readers: ['ean_reader'] }
+        }, (err) => {
+          if (err) { console.error(err); return; }
+          Quagga.start();
+
+          // 3️⃣ dibujá TODO para ver si al menos detecta “cajas” de barras
+          Quagga.onProcessed((res) => {
+            const ctx = Quagga.canvas.ctx.overlay;
+            const canvas = Quagga.canvas.dom.overlay;
+            if (!ctx) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (res?.boxes) {               // candidatos
+              res.boxes.forEach((b) => {
+                Quagga.ImageDebug.drawPath(
+                  b, { x: 0, y: 1 }, ctx, { color: 'green', lineWidth: 2 }
+                );
+              });
+            }
+            if (res?.lines && res.lines.length) { // líneas que “parecen” código
+              res.lines.forEach((l) => {
+                Quagga.ImageDebug.drawPath(
+                  l, { x:'x', y:'y' }, ctx, { color: 'purple', lineWidth: 3 }
+                );
+              });
+            }
+          });
+
+          // 4️⃣ cuando decodifica
+          Quagga.onDetected(({ codeResult }) => {
+            console.log('%c✔ EAN detectado: ' + codeResult.code, 'color:lime;font-size:16px');
+            alert('EAN: ' + codeResult.code);
+          });
+        });
+      } catch (e) { console.error('getUserMedia', e); }
+    })();
+  </script>
+</body>
+</html>
