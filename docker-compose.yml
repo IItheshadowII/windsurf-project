@@ -31,13 +31,15 @@ services:
     ports:
       - "8080:80"
     restart: always
+    labels:
+      - "com.containrrr.watchtower.enable=true"
 
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --cleanup --interval 30
+    command: --cleanup --interval 30 --label-enable
     restart: always
 
 volumes:
